@@ -87,12 +87,16 @@ TUI log file analyzer — tail, grep, aggregate, and visualize log patterns in r
 **Goal:** Phase 6: Export formats (JSON, CSV) and CLI args
 
 **Deliverables:**
-- [ ] Core implementation
-- [ ] Tests
-- [ ] Documentation update
+- [x] Core implementation
+- [x] Tests
+- [x] Documentation update
 
 **Notes:**
-- 
+- Added `ExportFormat` enum supporting JSON and CSV
+- Added `--export` and `--export-output` CLI arguments
+- JSON export includes file metadata, parsed lines, and aggregation results
+- CSV export produces flat tabular output with dynamic field columns
+- Export triggered automatically on app exit when `--export` is provided 
 
 ---
 
