@@ -105,12 +105,15 @@ TUI log file analyzer — tail, grep, aggregate, and visualize log patterns in r
 **Goal:** Phase 7: Polish — themes, keybinds, man page
 
 **Deliverables:**
-- [ ] Core implementation
-- [ ] Tests
-- [ ] Documentation update
+- [x] Core implementation
+- [x] Tests
+- [x] Documentation update
 
 **Notes:**
-- 
+- Status bar and aggregation/anomaly views now use theme colors instead of hardcoded values
+- Added `?` / `h` keyboard shortcut to toggle a help popup with all keybindings
+- Added `Esc` to close the help popup
+- Created `tapeworm.1` man page covering CLI options, keyboard controls, profiles, and examples 
 
 ---
 

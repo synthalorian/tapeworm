@@ -6,7 +6,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 
@@ -35,6 +35,10 @@ pub fn render(f: &mut Frame, app: &App) {
         ViewMode::Anomaly => render_anomaly_view(f, app, main_chunks[1]),
     }
     render_status_bar(f, app, chunks[1]);
+
+    if app.show_help {
+        render_help(f, app);
+    }
 }
 
 fn render_file_list(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
@@ -177,7 +181,7 @@ fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect
 
             lines.push(Line::from(vec![
                 Span::styled("Total Lines: ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::styled(format!("{}", agg.total_count), Style::default().fg(Color::Cyan)),
+                Span::styled(format!("{}", agg.total_count), Style::default().fg(theme.count_color())),
             ]));
             lines.push(Line::from(""));
 
@@ -198,7 +202,7 @@ fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect
                             Style::default().fg(level_color(level, &theme)),
                         ),
                         Span::styled(format!("{:>6} ", count), Style::default()),
-                        Span::styled(format!("({}%)", pct), Style::default().fg(Color::DarkGray)),
+                        Span::styled(format!("({}%)", pct), Style::default().fg(theme.muted())),
                     ]));
                 }
                 lines.push(Line::from(""));
@@ -216,7 +220,7 @@ fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect
                     sorted_values.sort_by(|a, b| b.1.cmp(a.1));
                     for (value, count) in sorted_values.iter().take(10) {
                         lines.push(Line::from(vec![
-                            Span::styled(format!("    {:>20}: ", value), Style::default().fg(Color::Yellow)),
+                            Span::styled(format!("    {:>20}: ", value), Style::default().fg(theme.field_color())),
                             Span::styled(format!("{}", count), Style::default()),
                         ]));
                     }
@@ -224,7 +228,7 @@ fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect
                         lines.push(Line::from(vec![
                             Span::styled(
                                 format!("    ... and {} more", sorted_values.len() - 10),
-                                Style::default().fg(Color::DarkGray),
+                                Style::default().fg(theme.muted()),
                             ),
                         ]));
                     }
@@ -239,7 +243,7 @@ fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect
                 let buckets = app.aggregation_engine.sorted_time_buckets(agg);
                 for (bucket, count) in buckets.iter().take(20) {
                     lines.push(Line::from(vec![
-                        Span::styled(format!("  {}: ", bucket), Style::default().fg(Color::Green)),
+                        Span::styled(format!("  {}: ", bucket), Style::default().fg(theme.time_color())),
                         Span::styled(format!("{}", count), Style::default()),
                     ]));
                 }
@@ -247,7 +251,7 @@ fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect
                     lines.push(Line::from(vec![
                         Span::styled(
                             format!("  ... and {} more buckets", buckets.len() - 20),
-                            Style::default().fg(Color::DarkGray),
+                            Style::default().fg(theme.muted()),
                         ),
                     ]));
                 }
@@ -376,7 +380,7 @@ fn render_anomaly_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
                             "bucket: {} | value: {} | expected: ~{}",
                             anomaly.bucket, anomaly.value, anomaly.expected
                         ),
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(theme.muted()),
                     ),
                 ]));
             }
@@ -385,7 +389,7 @@ fn render_anomaly_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
                 lines.push(Line::from(""));
                 lines.push(Line::from(vec![Span::styled(
                     format!("... and {} more anomalies", sorted.len() - 50),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(theme.muted()),
                 )]));
             }
 
@@ -426,15 +430,123 @@ fn render_status_bar(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     };
 
     let help_text = format!(
-        " [{}] q:quit | j/↓:down | k/↑:up | Tab:focus | a:{} | t:tw | T:theme | p:parse({}) | ↑/↓:scroll ",
+        " [{}] q:quit | j/↓:down | k/↑:up | Tab:focus | a:{} | t:tw | T:theme | p:parse({}) | ?:help ",
         focus_text, view_indicator, parse_indicator
     );
 
+    let theme = app.theme;
     let status = Paragraph::new(help_text)
-        .style(Style::default().fg(Color::Black).bg(Color::White))
+        .style(Style::default().fg(theme.status_fg()).bg(theme.status_bg()))
         .alignment(Alignment::Center);
 
     f.render_widget(status, area);
+}
+
+fn render_help(f: &mut Frame, app: &App) {
+    let theme = app.theme;
+    let area = f.size();
+
+    let popup_width = (area.width.saturating_sub(8)).min(60);
+    let popup_height = (area.height.saturating_sub(6)).min(26);
+    let popup_area = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length((area.height.saturating_sub(popup_height)) / 2),
+            Constraint::Length(popup_height),
+            Constraint::Length((area.height.saturating_sub(popup_height)) / 2),
+        ])
+        .split(area)[1];
+    let popup_area = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length((area.width.saturating_sub(popup_width)) / 2),
+            Constraint::Length(popup_width),
+            Constraint::Length((area.width.saturating_sub(popup_width)) / 2),
+        ])
+        .split(popup_area)[1];
+
+    f.render_widget(Clear, popup_area);
+
+    let help_lines = vec![
+        Line::from(vec![
+            Span::styled("Keyboard Shortcuts", Style::default().add_modifier(Modifier::BOLD).underlined().fg(theme.primary())),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("q, Ctrl+C", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("  Quit tapeworm", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("Tab", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("          Switch focus (files / view)", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("j / ↓", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("        Next file (files) / scroll up (view)", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("k / ↑", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("        Previous file (files) / scroll down (view)", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("G", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("            Scroll to bottom of tail view", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("g", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("            Scroll to top of tail view", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("a", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("            Toggle view mode (tail / agg / anomaly)", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("t", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("            Cycle aggregation time window", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("T", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("            Cycle color theme", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("p", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("            Toggle parsed / raw view", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("h, ?", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("         Toggle this help popup", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("          Close help popup", Style::default().fg(theme.text())),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("CLI: ", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("--theme <name> | --export <json|csv> | --profile <name>", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("Themes: ", Style::default().add_modifier(Modifier::BOLD).fg(theme.primary())),
+            Span::styled("default, dark, light, solarized, monokai", Style::default().fg(theme.text())),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Press h, ?, or Esc to close", Style::default().fg(theme.muted())),
+        ]),
+    ];
+
+    let help = Paragraph::new(Text::from(help_lines))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(theme.primary()))
+                .title(" Help ")
+                .title_alignment(Alignment::Center),
+        )
+        .style(Style::default().bg(theme.selection_bg()).fg(theme.text()))
+        .alignment(Alignment::Left);
+
+    f.render_widget(help, popup_area);
 }
 
 /// Get the color for a log level
@@ -487,5 +599,35 @@ mod tests {
         assert_eq!(level_color(LogLevel::Error, &theme), Color::Red);
         assert_eq!(level_color(LogLevel::Fatal, &theme), Color::Magenta);
         assert_eq!(level_color(LogLevel::Unknown, &theme), Color::White);
+    }
+
+    #[test]
+    fn test_status_bar_uses_theme_colors() {
+        let paths = vec![PathBuf::from("/tmp/test.log")];
+        let app = App::new(paths, Theme::Monokai);
+        let theme = app.theme;
+
+        assert_eq!(theme.status_fg(), Color::Rgb(248, 248, 242));
+        assert_eq!(theme.status_bg(), Color::Rgb(73, 72, 62));
+    }
+
+    #[test]
+    fn test_themes_have_distinct_status_colors() {
+        let themes = vec![
+            Theme::Default,
+            Theme::Dark,
+            Theme::Light,
+            Theme::Solarized,
+            Theme::Monokai,
+        ];
+
+        let mut seen = std::collections::HashSet::new();
+        for theme in themes {
+            let pair = (theme.status_fg(), theme.status_bg());
+            assert!(
+                seen.insert(pair),
+                "Theme status colors should be distinct across themes"
+            );
+        }
     }
 }

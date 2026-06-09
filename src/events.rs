@@ -84,6 +84,14 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
         KeyCode::Char('T') => {
             app.cycle_theme();
         }
+        KeyCode::Char('?') | KeyCode::Char('h') | KeyCode::Char('H') => {
+            app.toggle_help();
+        }
+        KeyCode::Esc => {
+            if app.show_help {
+                app.show_help = false;
+            }
+        }
         _ => {}
     }
 }
@@ -171,5 +179,38 @@ mod tests {
         
         handle_key_event(&mut app, make_key(KeyCode::Char('P')));
         assert!(app.show_parsed);
+    }
+
+    #[test]
+    fn test_h_key_toggle_help() {
+        let paths = vec![PathBuf::from("/tmp/test.log")];
+        let mut app = App::new(paths, Theme::default());
+        
+        assert!(!app.show_help);
+        handle_key_event(&mut app, make_key(KeyCode::Char('h')));
+        assert!(app.show_help);
+        
+        handle_key_event(&mut app, make_key(KeyCode::Char('?')));
+        assert!(!app.show_help);
+    }
+
+    #[test]
+    fn test_esc_closes_help() {
+        let paths = vec![PathBuf::from("/tmp/test.log")];
+        let mut app = App::new(paths, Theme::default());
+        
+        app.show_help = true;
+        handle_key_event(&mut app, make_key(KeyCode::Esc));
+        assert!(!app.show_help);
+    }
+
+    #[test]
+    fn test_esc_does_nothing_when_help_closed() {
+        let paths = vec![PathBuf::from("/tmp/test.log")];
+        let mut app = App::new(paths, Theme::default());
+        
+        assert!(!app.show_help);
+        handle_key_event(&mut app, make_key(KeyCode::Esc));
+        assert!(!app.show_help);
     }
 }

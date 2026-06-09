@@ -1,0 +1,184 @@
+.TH TAPEWORM 1 "June 2026" "tapeworm 0.1.0" "User Commands"
+.SH NAME
+tapeworm \- TUI log file analyzer
+.SH SYNOPSIS
+.B tapeworm
+[\fIOPTIONS\fR] \fIFILE\fR [\fIFILE\fR...]
+.SH DESCRIPTION
+.B tapeworm
+is a terminal UI log file analyzer inspired by htop.
+It watches log files in real time, parses them with regex profiles,
+aggregates counts by level and field, detects anomalies, and exports
+results to JSON or CSV.
+.PP
+The interface is split into a file list sidebar and a main view that
+can show live tail output, aggregation summaries, or detected anomalies.
+.SH ARGUMENTS
+.TP
+.IR FILE ...
+One or more log files to watch. Each file must exist and be a regular
+file. Multiple files are tracked in the sidebar and can be switched
+between at runtime.
+.SH OPTIONS
+.TP
+.BR \-t ", " \-\-tick-rate " " \fIMILLISECONDS\fR
+UI refresh interval in milliseconds. Lower values make the interface
+more responsive at the cost of higher CPU usage. Default: 250.
+.TP
+.BR \-i ", " \-\-initial-lines " " \fIN\fR
+Number of most recent lines to read from each file on startup.
+Default: 50.
+.TP
+.BR \-p ", " \-\-profile " " \fINAME\fR
+Log parsing profile to use. Built\-in profiles are
+.BR syslog ,
+.BR nginx ,
+.BR apache ,
+and
+.BR json .
+A custom profile can be loaded by passing a path to a JSON profile
+file. Default: syslog.
+.TP
+.B \-\-no-parse
+Disable log parsing and show raw lines only.
+.TP
+.BR \-e ", " \-\-export " " \fIFORMAT\fR
+On exit, export collected data to a file. Supported formats are
+.B json
+and
+.BR csv .
+When this option is used, data is written automatically when the
+application exits.
+.TP
+.B \-\-export-output " " \fIPATH\fR
+Output path for exported data. If omitted, the default is
+.IR tapeworm-export.json
+or
+.IR tapeworm-export.csv
+depending on the export format.
+.TP
+.B \-\-theme " " \fINAME\fR
+Color theme for the UI. Available themes:
+.BR default ,
+.BR dark ,
+.BR light ,
+.BR solarized ,
+.BR monokai .
+Default: default.
+.TP
+.BR \-h ", " \-\-help
+Print help information and exit.
+.TP
+.BR \-V ", " \-\-version
+Print version information and exit.
+.SH KEYBOARD CONTROLS
+.TP
+.BR q ", " Ctrl+C
+Quit
+.BR tapeworm .
+.TP
+.B Tab
+Switch focus between the file list and the main view.
+.TP
+.BR j ", " \(Do
+Next file when the file list is focused, or scroll up in the main view.
+.TP
+.BR k ", " \(Fo
+Previous file when the file list is focused, or scroll down in the main view.
+.TP
+.B G
+Scroll to the bottom of the tail view.
+.TP
+.B g
+Scroll to the top of the tail view.
+.TP
+.B a
+Toggle the main view mode: Tail \(-> Aggregation \(-> Anomaly.
+.TP
+.B t
+Cycle the aggregation time window: 1m \(-> 5m \(-> 15m \(-> 1h.
+.TP
+.B T
+Cycle the active color theme.
+.TP
+.B p
+Toggle parsed and raw line display.
+.TP
+.BR h ", " ?
+Toggle the keyboard shortcuts help popup.
+.TP
+.B Esc
+Close the help popup.
+.SH PROFILES
+Profiles define how log lines are parsed into structured fields and
+log levels. Built\-in profiles cover common formats, and custom profiles
+can be written as JSON files.
+.PP
+A profile JSON file contains:
+.IP \(bu 2
+.BR name :
+profile name
+.IP \(bu 2
+.BR regex :
+PCRE\-style regular expression with named capture groups
+.IP \(bu 2
+.BR level_field :
+optional capture group that contains the log level
+.IP \(bu 2
+.BR timestamp_field :
+optional capture group that contains the timestamp
+.IP \(bu 2
+.BR fields :
+list of additional field names to extract from capture groups
+.SH EXAMPLES
+.PP
+Watch a single log file with the default syslog profile:
+.RS
+.nf
+$ tapeworm /var/log/syslog
+.fi
+.RE
+.PP
+Watch multiple files using the nginx profile:
+.RS
+.nf
+$ tapeworm --profile nginx /var/log/nginx/access.log /var/log/nginx/error.log
+.fi
+.RE
+.PP
+Use a faster tick rate and read more initial lines:
+.RS
+.nf
+$ tapeworm --tick-rate 100 --initial-lines 200 /var/log/syslog
+.fi
+.RE
+.PP
+Export to JSON on exit:
+.RS
+.nf
+$ tapeworm --export json --export-output /tmp/syslog.json /var/log/syslog
+.fi
+.RE
+.PP
+Use a custom profile and the monokai theme:
+.RS
+.nf
+$ tapeworm --theme monokai --profile /path/to/my-profile.json /var/log/app.log
+.fi
+.RE
+.SH FILES
+.TP
+.I profiles/*.json
+Built\-in log parsing profiles shipped with the application.
+.SH ENVIRONMENT
+No environment variables are required. The application runs in the
+user\(aqs terminal using crossterm and should work in any common
+terminal emulator.
+.SH AUTHOR
+Written by the tapeworm contributors.
+.SH COPYRIGHT
+Licensed under the MIT License.
+.SH SEE ALSO
+.BR tail (1),
+.BR grep (1),
+.BR less (1)

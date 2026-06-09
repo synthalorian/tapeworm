@@ -16,6 +16,7 @@
 - [x] **Phase 4:** Histogram and heatmap widgets
 - [x] **Phase 5:** Anomaly detection (rate spikes, pattern breaks)
 - [x] **Phase 6:** Export formats (JSON, CSV) and CLI args
+- [x] **Phase 7:** Polish — themes, keybinds, man page
 
 ---
 
@@ -27,7 +28,7 @@
 4. ~~Phase 4: Histogram and heatmap widgets~~ ✅
 5. ~~Phase 5: Anomaly detection (rate spikes, pattern breaks)~~ ✅
 6. ~~Phase 6: Export formats (JSON, CSV) and CLI args~~ ✅
-7. Phase 7: Polish — themes, keybinds, man page
+7. ~~Phase 7: Polish — themes, keybinds, man page~~ ✅
 
 ---
 
@@ -88,6 +89,8 @@ cargo run -- --theme monokai /var/log/syslog
 | `t` | Cycle time window for aggregation (1m → 5m → 15m → 1h) |
 | `T` | Cycle color theme |
 | `p` | Toggle parsed/raw view |
+| `?` / `h` | Toggle help popup |
+| `Esc` | Close help popup |
 
 ---
 
@@ -116,6 +119,16 @@ cargo run -- --theme monokai /var/log/syslog
 ```
 
 ---
+
+## Man Page
+
+A complete man page is included at `tapeworm.1`. View it locally with:
+
+```bash
+man -l tapeworm.1
+```
+
+Or install it to your system man path (e.g., `/usr/local/share/man/man1/`).
 
 ## Testing
 

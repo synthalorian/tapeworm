@@ -106,6 +106,7 @@ pub struct App {
     pub view_mode: ViewMode,
     pub aggregation_engine: AggregationEngine,
     pub theme: Theme,
+    pub show_help: bool,
 }
 
 impl App {
@@ -121,11 +122,16 @@ impl App {
             view_mode: ViewMode::Tail,
             aggregation_engine: AggregationEngine::default(),
             theme,
+            show_help: false,
         }
     }
 
     pub fn cycle_theme(&mut self) {
         self.theme = self.theme.next();
+    }
+
+    pub fn toggle_help(&mut self) {
+        self.show_help = !self.show_help;
     }
 
     pub fn toggle_view_mode(&mut self) {
@@ -351,5 +357,17 @@ mod tests {
         assert_eq!(app.theme, Theme::Dark);
         app.cycle_theme();
         assert_eq!(app.theme, Theme::Light);
+    }
+
+    #[test]
+    fn test_toggle_help() {
+        let paths = vec![PathBuf::from("/tmp/test.log")];
+        let mut app = App::new(paths, Theme::default());
+        
+        assert!(!app.show_help);
+        app.toggle_help();
+        assert!(app.show_help);
+        app.toggle_help();
+        assert!(!app.show_help);
     }
 }
