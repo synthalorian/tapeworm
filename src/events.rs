@@ -74,6 +74,12 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
         KeyCode::Char('p') | KeyCode::Char('P') => {
             app.toggle_parsed_view();
         }
+        KeyCode::Char('a') | KeyCode::Char('A') => {
+            app.toggle_view_mode();
+        }
+        KeyCode::Char('t') | KeyCode::Char('T') => {
+            app.cycle_time_window();
+        }
         _ => {}
     }
 }

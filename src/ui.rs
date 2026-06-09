@@ -1,8 +1,8 @@
-use crate::app::{App, Focus};
+use crate::app::{App, Focus, ViewMode};
 use crate::parser::LogLevel;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
@@ -27,7 +27,10 @@ pub fn render(f: &mut Frame, app: &App) {
         .split(chunks[0]);
 
     render_file_list(f, app, main_chunks[0]);
-    render_tail_view(f, app, main_chunks[1]);
+    match app.view_mode {
+        ViewMode::Tail => render_tail_view(f, app, main_chunks[1]),
+        ViewMode::Aggregation => render_aggregation_view(f, app, main_chunks[1]),
+    }
     render_status_bar(f, app, chunks[1]);
 }
 
@@ -148,17 +151,141 @@ fn render_tail_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     f.render_widget(paragraph, area);
 }
 
+fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+    let is_focused = app.focus == Focus::TailView;
+    let border_style = if is_focused {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::Gray)
+    };
+
+    let title = if let Some(file) = app.selected_file() {
+        format!(" Aggregation — {} [{}] ", file.name(), app.aggregation_engine.time_window.as_str())
+    } else {
+        " Aggregation — No file selected ".to_string()
+    };
+
+    let text = if let Some(file) = app.selected_file() {
+        if let Some(ref agg) = file.aggregation {
+            let mut lines: Vec<Line> = Vec::new();
+
+            lines.push(Line::from(vec![
+                Span::styled("Total Lines: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(format!("{}", agg.total_count), Style::default().fg(Color::Cyan)),
+            ]));
+            lines.push(Line::from(""));
+
+            if !agg.by_level.is_empty() {
+                lines.push(Line::from(vec![
+                    Span::styled("By Level", Style::default().add_modifier(Modifier::BOLD).underlined()),
+                ]));
+                let level_counts = app.aggregation_engine.sorted_level_counts(agg);
+                for (level, count) in level_counts {
+                    let pct = if agg.total_count > 0 {
+                        (count as f64 / agg.total_count as f64 * 100.0) as u64
+                    } else {
+                        0
+                    };
+                    lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("  {:>8}: ", level.as_str()),
+                            Style::default().fg(level_color(level)),
+                        ),
+                        Span::styled(format!("{:>6} ", count), Style::default()),
+                        Span::styled(format!("({}%)", pct), Style::default().fg(Color::DarkGray)),
+                    ]));
+                }
+                lines.push(Line::from(""));
+            }
+
+            if !agg.by_field.is_empty() {
+                lines.push(Line::from(vec![
+                    Span::styled("Group By", Style::default().add_modifier(Modifier::BOLD).underlined()),
+                ]));
+                for (field_name, values) in &agg.by_field {
+                    lines.push(Line::from(vec![
+                        Span::styled(format!("  {}:", field_name), Style::default().add_modifier(Modifier::BOLD)),
+                    ]));
+                    let mut sorted_values: Vec<(&String, &usize)> = values.iter().collect();
+                    sorted_values.sort_by(|a, b| b.1.cmp(a.1));
+                    for (value, count) in sorted_values.iter().take(10) {
+                        lines.push(Line::from(vec![
+                            Span::styled(format!("    {:>20}: ", value), Style::default().fg(Color::Yellow)),
+                            Span::styled(format!("{}", count), Style::default()),
+                        ]));
+                    }
+                    if sorted_values.len() > 10 {
+                        lines.push(Line::from(vec![
+                            Span::styled(
+                                format!("    ... and {} more", sorted_values.len() - 10),
+                                Style::default().fg(Color::DarkGray),
+                            ),
+                        ]));
+                    }
+                    lines.push(Line::from(""));
+                }
+            }
+
+            if !agg.time_buckets.is_empty() {
+                lines.push(Line::from(vec![
+                    Span::styled("Time Buckets", Style::default().add_modifier(Modifier::BOLD).underlined()),
+                ]));
+                let buckets = app.aggregation_engine.sorted_time_buckets(agg);
+                for (bucket, count) in buckets.iter().take(20) {
+                    lines.push(Line::from(vec![
+                        Span::styled(format!("  {}: ", bucket), Style::default().fg(Color::Green)),
+                        Span::styled(format!("{}", count), Style::default()),
+                    ]));
+                }
+                if buckets.len() > 20 {
+                    lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("  ... and {} more buckets", buckets.len() - 20),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                    ]));
+                }
+            }
+
+            Text::from(lines)
+        } else {
+            Text::from("No aggregation data available. Toggle aggregation with 'a'.")
+        }
+    } else {
+        Text::from("Select a file to view its aggregation")
+    };
+
+    let paragraph = Paragraph::new(text)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(title)
+                .title_alignment(Alignment::Center),
+        )
+        .wrap(Wrap { trim: false });
+
+    f.render_widget(paragraph, area);
+}
+
 fn render_status_bar(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let focus_text = match app.focus {
         Focus::FileList => "FILES",
-        Focus::TailView => "TAIL",
+        Focus::TailView => match app.view_mode {
+            ViewMode::Tail => "TAIL",
+            ViewMode::Aggregation => "AGG",
+        },
     };
 
     let parse_indicator = if app.show_parsed { "P" } else { "R" };
+    let view_indicator = match app.view_mode {
+        ViewMode::Tail => "tail",
+        ViewMode::Aggregation => "agg",
+    };
 
     let help_text = format!(
-        " [{}] q:quit | j/↓:down | k/↑:up | Tab:focus | G:bottom | p:parse({}) | ↑/↓:scroll ",
-        focus_text, parse_indicator
+        " [{}] q:quit | j/↓:down | k/↑:up | Tab:focus | a:{} | t:tw | p:parse({}) | ↑/↓:scroll ",
+        focus_text, view_indicator, parse_indicator
     );
 
     let status = Paragraph::new(help_text)

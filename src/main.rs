@@ -1,3 +1,4 @@
+mod aggregate;
 mod app;
 mod events;
 mod parser;
@@ -155,12 +156,13 @@ fn run_app<B: Backend>(
                     .iter_mut()
                     .find(|f| f.path == *file_path)
                 {
-                    // Parse initial lines if parser is available
-                    if let Some(ref p) = parser {
-                        let parsed = p.parse_lines(&lines);
-                        file_state.push_parsed_lines(parsed);
-                    }
-                    file_state.push_lines(lines);
+                        // Parse initial lines if parser is available
+                        if let Some(ref p) = parser {
+                            let parsed = p.parse_lines(&lines);
+                            file_state.push_parsed_lines(parsed);
+                        }
+                        file_state.push_lines(lines);
+                        file_state.recompute_aggregation(&app.aggregation_engine);
                 }
             }
             Err(e) => {
@@ -194,6 +196,7 @@ fn run_app<B: Backend>(
                                         file_state.push_parsed_lines(parsed);
                                     }
                                     file_state.push_lines(lines);
+                                    file_state.recompute_aggregation(&app.aggregation_engine);
                                 }
                             }
                             TailEvent::FileRemoved { path } => {

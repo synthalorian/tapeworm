@@ -1,3 +1,4 @@
+use crate::aggregate::{AggregationEngine, AggregationResult};
 use crate::parser::ParsedLine;
 use std::path::PathBuf;
 
@@ -16,6 +17,7 @@ pub struct FileState {
     pub parsed_lines: Vec<ParsedLine>,
     pub line_count: usize,
     pub parser_enabled: bool,
+    pub aggregation: Option<AggregationResult>,
 }
 
 impl FileState {
@@ -26,7 +28,13 @@ impl FileState {
             parsed_lines: Vec::new(),
             line_count: 0,
             parser_enabled: true,
+            aggregation: None,
         }
+    }
+
+    /// Recompute aggregation using the provided engine
+    pub fn recompute_aggregation(&mut self, engine: &AggregationEngine) {
+        self.aggregation = Some(engine.aggregate(&self.parsed_lines));
     }
 
     pub fn name(&self) -> String {
@@ -69,6 +77,13 @@ impl FileState {
     }
 }
 
+/// Available view modes for the main panel
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ViewMode {
+    Tail,
+    Aggregation,
+}
+
 /// Main application state
 #[derive(Debug)]
 pub struct App {
@@ -78,6 +93,8 @@ pub struct App {
     pub should_quit: bool,
     pub tail_scroll: usize,
     pub show_parsed: bool,
+    pub view_mode: ViewMode,
+    pub aggregation_engine: AggregationEngine,
 }
 
 impl App {
@@ -90,6 +107,26 @@ impl App {
             should_quit: false,
             tail_scroll: 0,
             show_parsed: true,
+            view_mode: ViewMode::Tail,
+            aggregation_engine: AggregationEngine::default(),
+        }
+    }
+
+    pub fn toggle_view_mode(&mut self) {
+        self.view_mode = match self.view_mode {
+            ViewMode::Tail => ViewMode::Aggregation,
+            ViewMode::Aggregation => ViewMode::Tail,
+        };
+    }
+
+    pub fn cycle_time_window(&mut self) {
+        self.aggregation_engine.cycle_time_window();
+        self.recompute_all_aggregations();
+    }
+
+    pub fn recompute_all_aggregations(&mut self) {
+        for file in &mut self.files {
+            file.recompute_aggregation(&self.aggregation_engine);
         }
     }
 
