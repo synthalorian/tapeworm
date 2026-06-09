@@ -1,5 +1,6 @@
 use crate::app::{App, Focus, ViewMode};
 use crate::parser::LogLevel;
+use crate::theme::Theme;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style, Stylize},
@@ -36,10 +37,11 @@ pub fn render(f: &mut Frame, app: &App) {
 
 fn render_file_list(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let is_focused = app.focus == Focus::FileList;
+    let theme = app.theme;
     let border_style = if is_focused {
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        Style::default().fg(theme.primary()).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::Gray)
+        Style::default().fg(theme.secondary())
     };
 
     let items: Vec<ListItem> = app
@@ -51,17 +53,17 @@ fn render_file_list(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
             let style = if is_selected {
                 if is_focused {
                     Style::default()
-                        .bg(Color::Cyan)
-                        .fg(Color::Black)
+                        .bg(theme.selection_bg())
+                        .fg(theme.selection_fg())
                         .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default()
-                        .bg(Color::DarkGray)
-                        .fg(Color::White)
+                        .bg(theme.secondary())
+                        .fg(theme.text())
                         .add_modifier(Modifier::BOLD)
                 }
             } else {
-                Style::default().fg(Color::White)
+                Style::default().fg(theme.text())
             };
 
             let line_count = format!(" [{}]", file.line_count);
@@ -85,10 +87,11 @@ fn render_file_list(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
 fn render_tail_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let is_focused = app.focus == Focus::TailView;
+    let theme = app.theme;
     let border_style = if is_focused {
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        Style::default().fg(theme.primary()).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::Gray)
+        Style::default().fg(theme.secondary())
     };
 
     let title = if let Some(file) = app.selected_file() {
@@ -118,13 +121,13 @@ fn render_tail_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
                 .iter()
                 .map(|(line, level)| {
                     if app.show_parsed && level.is_some() {
-                        let level_color = level_color(level.unwrap());
+                        let level_color = level_color(level.unwrap(), &theme);
                         Line::from(vec![
                             Span::styled(
                                 format!("[{}] ", level.unwrap().as_str()),
                                 Style::default().fg(level_color).add_modifier(Modifier::BOLD),
                             ),
-                            Span::styled(line.clone(), Style::default()),
+                            Span::styled(line.clone(), Style::default().fg(theme.text())),
                         ])
                     } else {
                         Line::from(line.clone())
@@ -153,10 +156,11 @@ fn render_tail_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
 fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let is_focused = app.focus == Focus::TailView;
+    let theme = app.theme;
     let border_style = if is_focused {
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        Style::default().fg(theme.primary()).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::Gray)
+        Style::default().fg(theme.secondary())
     };
 
     let title = if let Some(file) = app.selected_file() {
@@ -189,7 +193,7 @@ fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect
                     lines.push(Line::from(vec![
                         Span::styled(
                             format!("  {:>8}: ", level.as_str()),
-                            Style::default().fg(level_color(level)),
+                            Style::default().fg(level_color(level, &theme)),
                         ),
                         Span::styled(format!("{:>6} ", count), Style::default()),
                         Span::styled(format!("({}%)", pct), Style::default().fg(Color::DarkGray)),
@@ -284,7 +288,7 @@ fn render_status_bar(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     };
 
     let help_text = format!(
-        " [{}] q:quit | j/↓:down | k/↑:up | Tab:focus | a:{} | t:tw | p:parse({}) | ↑/↓:scroll ",
+        " [{}] q:quit | j/↓:down | k/↑:up | Tab:focus | a:{} | t:tw | T:theme | p:parse({}) | ↑/↓:scroll ",
         focus_text, view_indicator, parse_indicator
     );
 
@@ -296,15 +300,15 @@ fn render_status_bar(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 }
 
 /// Get the color for a log level
-fn level_color(level: LogLevel) -> Color {
+fn level_color(level: LogLevel, theme: &Theme) -> Color {
     match level {
-        LogLevel::Trace => Color::DarkGray,
-        LogLevel::Debug => Color::Blue,
-        LogLevel::Info => Color::Green,
-        LogLevel::Warn => Color::Yellow,
-        LogLevel::Error => Color::Red,
-        LogLevel::Fatal => Color::Magenta,
-        LogLevel::Unknown => Color::White,
+        LogLevel::Trace => theme.trace_color(),
+        LogLevel::Debug => theme.debug_color(),
+        LogLevel::Info => theme.info_color(),
+        LogLevel::Warn => theme.warn_color(),
+        LogLevel::Error => theme.error_color(),
+        LogLevel::Fatal => theme.fatal_color(),
+        LogLevel::Unknown => theme.unknown_color(),
     }
 }
 
@@ -318,7 +322,7 @@ mod tests {
     fn test_render_app() {
         // This test mainly ensures the render functions don't panic
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let app = App::new(paths);
+        let app = App::new(paths, Theme::default());
         
         // We can't easily test rendering without a terminal, but we can verify
         // the app state is correct for rendering
@@ -328,12 +332,13 @@ mod tests {
 
     #[test]
     fn test_level_color() {
-        assert_eq!(level_color(LogLevel::Trace), Color::DarkGray);
-        assert_eq!(level_color(LogLevel::Debug), Color::Blue);
-        assert_eq!(level_color(LogLevel::Info), Color::Green);
-        assert_eq!(level_color(LogLevel::Warn), Color::Yellow);
-        assert_eq!(level_color(LogLevel::Error), Color::Red);
-        assert_eq!(level_color(LogLevel::Fatal), Color::Magenta);
-        assert_eq!(level_color(LogLevel::Unknown), Color::White);
+        let theme = Theme::default();
+        assert_eq!(level_color(LogLevel::Trace, &theme), Color::DarkGray);
+        assert_eq!(level_color(LogLevel::Debug, &theme), Color::Blue);
+        assert_eq!(level_color(LogLevel::Info, &theme), Color::Green);
+        assert_eq!(level_color(LogLevel::Warn, &theme), Color::Yellow);
+        assert_eq!(level_color(LogLevel::Error, &theme), Color::Red);
+        assert_eq!(level_color(LogLevel::Fatal, &theme), Color::Magenta);
+        assert_eq!(level_color(LogLevel::Unknown, &theme), Color::White);
     }
 }

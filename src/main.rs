@@ -1,9 +1,11 @@
 mod aggregate;
 mod app;
 mod events;
+mod export;
 mod parser;
 mod profile;
 mod tail;
+mod theme;
 mod ui;
 
 use app::App;
@@ -14,6 +16,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use events::{handle_key_event, EventHandler};
+use export::{export_files, ExportFormat};
 use parser::LogParser;
 use profile::ProfileManager;
 use ratatui::{
@@ -25,6 +28,7 @@ use std::{
     path::PathBuf,
 };
 use tail::{TailEvent, TailWatcher};
+use theme::Theme;
 
 /// tapeworm — TUI log file analyzer
 #[derive(Parser, Debug)]
@@ -51,6 +55,18 @@ struct Cli {
     /// Disable log parsing (show raw lines only)
     #[arg(long)]
     no_parse: bool,
+
+    /// Export data to file on exit (format: json or csv)
+    #[arg(short, long, value_name = "FORMAT")]
+    export: Option<String>,
+
+    /// Output path for export (default: tapeworm-export.<ext>)
+    #[arg(long, value_name = "PATH")]
+    export_output: Option<PathBuf>,
+
+    /// Color theme (default, dark, light, solarized, monokai)
+    #[arg(long, default_value = "default")]
+    theme: String,
 }
 
 fn main() -> io::Result<()> {
@@ -101,6 +117,9 @@ fn main() -> io::Result<()> {
         })
     };
 
+    // Resolve theme
+    let theme = Theme::from_name(&cli.theme).unwrap_or_default();
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -109,7 +128,7 @@ fn main() -> io::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // Run app
-    let result = run_app(&mut terminal, cli, parser);
+    let result = run_app(&mut terminal, cli, parser, theme);
 
     // Restore terminal
     disable_raw_mode()?;
@@ -132,8 +151,9 @@ fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     cli: Cli,
     parser: Option<LogParser>,
+    theme: Theme,
 ) -> io::Result<()> {
-    let mut app = App::new(cli.files.clone());
+    let mut app = App::new(cli.files.clone(), theme);
     let event_handler = EventHandler::new(cli.tick_rate);
     let mut tail_watcher = TailWatcher::new().map_err(|e| {
         io::Error::new(io::ErrorKind::Other, format!("Failed to create tail watcher: {}", e))
@@ -214,6 +234,21 @@ fn run_app<B: Backend>(
         }
     }
 
+    if let Some(ref format_str) = cli.export {
+        if let Some(format) = ExportFormat::from_str(format_str) {
+            let output_path = cli.export_output.clone().unwrap_or_else(|| {
+                PathBuf::from(format!("tapeworm-export{}", format.file_extension()))
+            });
+            if let Err(e) = export_files(&app.files, format, &output_path) {
+                eprintln!("Warning: Failed to export data: {}", e);
+            } else {
+                eprintln!("Exported data to {}", output_path.display());
+            }
+        } else {
+            eprintln!("Warning: Unknown export format '{}'. Supported: json, csv", format_str);
+        }
+    }
+
     Ok(())
 }
 
@@ -256,6 +291,43 @@ mod tests {
             "/tmp/test.log",
         ]);
         assert!(cli.no_parse);
+    }
+
+    #[test]
+    fn test_cli_parse_export() {
+        let cli = Cli::parse_from([
+            "tapeworm",
+            "--export",
+            "json",
+            "/tmp/test.log",
+        ]);
+        assert_eq!(cli.export, Some("json".to_string()));
+        assert!(cli.export_output.is_none());
+    }
+
+    #[test]
+    fn test_cli_parse_export_with_output() {
+        let cli = Cli::parse_from([
+            "tapeworm",
+            "--export",
+            "csv",
+            "--export-output",
+            "/tmp/out.csv",
+            "/tmp/test.log",
+        ]);
+        assert_eq!(cli.export, Some("csv".to_string()));
+        assert_eq!(cli.export_output, Some(PathBuf::from("/tmp/out.csv")));
+    }
+
+    #[test]
+    fn test_cli_parse_theme() {
+        let cli = Cli::parse_from([
+            "tapeworm",
+            "--theme",
+            "monokai",
+            "/tmp/test.log",
+        ]);
+        assert_eq!(cli.theme, "monokai");
     }
 
     #[test]

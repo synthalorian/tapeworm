@@ -1,4 +1,5 @@
 use crate::app::{App, Focus};
+use crate::theme::Theme;
 use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyModifiers};
 use std::time::Duration;
 
@@ -77,8 +78,11 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
         KeyCode::Char('a') | KeyCode::Char('A') => {
             app.toggle_view_mode();
         }
-        KeyCode::Char('t') | KeyCode::Char('T') => {
+        KeyCode::Char('t') => {
             app.cycle_time_window();
+        }
+        KeyCode::Char('T') => {
+            app.cycle_theme();
         }
         _ => {}
     }
@@ -101,7 +105,7 @@ mod tests {
     #[test]
     fn test_quit_key() {
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         handle_key_event(&mut app, make_key(KeyCode::Char('q')));
         assert!(app.should_quit);
@@ -110,7 +114,7 @@ mod tests {
     #[test]
     fn test_ctrl_c_quit() {
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         handle_key_event(&mut app, make_key_with_modifiers(KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert!(app.should_quit);
@@ -119,7 +123,7 @@ mod tests {
     #[test]
     fn test_tab_focus() {
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         assert_eq!(app.focus, Focus::FileList);
         handle_key_event(&mut app, make_key(KeyCode::Tab));
@@ -132,7 +136,7 @@ mod tests {
             PathBuf::from("/tmp/a.log"),
             PathBuf::from("/tmp/b.log"),
         ];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         handle_key_event(&mut app, make_key(KeyCode::Char('j')));
         assert_eq!(app.selected_index, 1);
@@ -147,7 +151,7 @@ mod tests {
             PathBuf::from("/tmp/a.log"),
             PathBuf::from("/tmp/b.log"),
         ];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         handle_key_event(&mut app, make_key(KeyCode::Down));
         assert_eq!(app.selected_index, 1);
@@ -159,7 +163,7 @@ mod tests {
     #[test]
     fn test_p_key_toggle_parsed() {
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         assert!(app.show_parsed);
         handle_key_event(&mut app, make_key(KeyCode::Char('p')));

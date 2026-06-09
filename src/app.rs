@@ -1,5 +1,6 @@
 use crate::aggregate::{AggregationEngine, AggregationResult};
 use crate::parser::ParsedLine;
+use crate::theme::Theme;
 use std::path::PathBuf;
 
 /// Application focus area
@@ -95,10 +96,11 @@ pub struct App {
     pub show_parsed: bool,
     pub view_mode: ViewMode,
     pub aggregation_engine: AggregationEngine,
+    pub theme: Theme,
 }
 
 impl App {
-    pub fn new(file_paths: Vec<PathBuf>) -> Self {
+    pub fn new(file_paths: Vec<PathBuf>, theme: Theme) -> Self {
         let files = file_paths.into_iter().map(FileState::new).collect();
         Self {
             files,
@@ -109,7 +111,12 @@ impl App {
             show_parsed: true,
             view_mode: ViewMode::Tail,
             aggregation_engine: AggregationEngine::default(),
+            theme,
         }
+    }
+
+    pub fn cycle_theme(&mut self) {
+        self.theme = self.theme.next();
     }
 
     pub fn toggle_view_mode(&mut self) {
@@ -199,7 +206,7 @@ mod tests {
     #[test]
     fn test_app_new() {
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let app = App::new(paths);
+        let app = App::new(paths, Theme::default());
         assert_eq!(app.files.len(), 1);
         assert_eq!(app.selected_index, 0);
         assert_eq!(app.focus, Focus::FileList);
@@ -214,7 +221,7 @@ mod tests {
             PathBuf::from("/tmp/b.log"),
             PathBuf::from("/tmp/c.log"),
         ];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         assert_eq!(app.selected_index, 0);
         app.next_file();
@@ -283,7 +290,7 @@ mod tests {
     #[test]
     fn test_focus_toggle() {
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         assert_eq!(app.focus, Focus::FileList);
         app.toggle_focus();
@@ -295,7 +302,7 @@ mod tests {
     #[test]
     fn test_scroll() {
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         // Add some lines
         if let Some(file) = app.selected_file_mut() {
@@ -315,12 +322,24 @@ mod tests {
     #[test]
     fn test_toggle_parsed_view() {
         let paths = vec![PathBuf::from("/tmp/test.log")];
-        let mut app = App::new(paths);
+        let mut app = App::new(paths, Theme::default());
         
         assert!(app.show_parsed);
         app.toggle_parsed_view();
         assert!(!app.show_parsed);
         app.toggle_parsed_view();
         assert!(app.show_parsed);
+    }
+
+    #[test]
+    fn test_cycle_theme() {
+        let paths = vec![PathBuf::from("/tmp/test.log")];
+        let mut app = App::new(paths, Theme::default());
+        
+        assert_eq!(app.theme, Theme::Default);
+        app.cycle_theme();
+        assert_eq!(app.theme, Theme::Dark);
+        app.cycle_theme();
+        assert_eq!(app.theme, Theme::Light);
     }
 }
