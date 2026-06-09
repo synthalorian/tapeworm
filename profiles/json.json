@@ -1,0 +1,10 @@
+{
+  "name": "json",
+  "description": "Generic JSON log format - captures the full JSON body",
+  "regex": "^\\s*\\{(?P<json_body>.*)\\}\\s*$",
+  "fields": [
+    {"name": "json_body", "field_type": "string"}
+  ],
+  "level_field": null,
+  "timestamp_field": null
+}

@@ -1,0 +1,17 @@
+{
+  "name": "nginx",
+  "description": "Nginx combined log format",
+  "regex": "^(?P<remote_addr>\\S+)\\s+-\\s+(?P<remote_user>\\S+)\\s+\\[(?P<timestamp>[^\\]]+)\\]\\s+\\\"(?P<request>[^\"]+)\\\"\\s+(?P<status>\\d{3})\\s+(?P<body_bytes_sent>\\d+)\\s+\\\"(?P<http_referer>[^\"]*)\\\"\\s+\\\"(?P<http_user_agent>[^\"]*)\\\"$",
+  "fields": [
+    {"name": "remote_addr", "field_type": "string"},
+    {"name": "remote_user", "field_type": "string"},
+    {"name": "timestamp", "field_type": "string"},
+    {"name": "request", "field_type": "string"},
+    {"name": "status", "field_type": "string"},
+    {"name": "body_bytes_sent", "field_type": "string"},
+    {"name": "http_referer", "field_type": "string"},
+    {"name": "http_user_agent", "field_type": "string"}
+  ],
+  "level_field": "status",
+  "timestamp_field": "timestamp"
+}

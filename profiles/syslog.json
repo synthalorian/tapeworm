@@ -1,0 +1,14 @@
+{
+  "name": "syslog",
+  "description": "Standard syslog format with timestamp, host, process, and message",
+  "regex": "^(?P<timestamp>\\w{3}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2})\\s+(?P<host>\\S+)\\s+(?P<process>\\S+)(?:\\[(?P<pid>\\d+)\\])?:\\s+(?P<message>.+)$",
+  "fields": [
+    {"name": "timestamp", "field_type": "string"},
+    {"name": "host", "field_type": "string"},
+    {"name": "process", "field_type": "string"},
+    {"name": "pid", "field_type": "string"},
+    {"name": "message", "field_type": "string"}
+  ],
+  "level_field": "message",
+  "timestamp_field": "timestamp"
+}
