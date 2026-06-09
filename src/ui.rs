@@ -1,3 +1,4 @@
+use crate::anomaly::AnomalySeverity;
 use crate::app::{App, Focus, ViewMode};
 use crate::parser::LogLevel;
 use crate::theme::Theme;
@@ -31,6 +32,7 @@ pub fn render(f: &mut Frame, app: &App) {
     match app.view_mode {
         ViewMode::Tail => render_tail_view(f, app, main_chunks[1]),
         ViewMode::Aggregation => render_aggregation_view(f, app, main_chunks[1]),
+        ViewMode::Anomaly => render_anomaly_view(f, app, main_chunks[1]),
     }
     render_status_bar(f, app, chunks[1]);
 }
@@ -272,12 +274,147 @@ fn render_aggregation_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect
     f.render_widget(paragraph, area);
 }
 
+fn render_anomaly_view(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+    let is_focused = app.focus == Focus::TailView;
+    let theme = app.theme;
+    let border_style = if is_focused {
+        Style::default().fg(theme.primary()).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(theme.secondary())
+    };
+
+    let title = if let Some(file) = app.selected_file() {
+        let severity_summary = if file.anomalies.is_empty() {
+            " [OK]".to_string()
+        } else {
+            let crit = file
+                .anomalies
+                .iter()
+                .filter(|a| a.severity == AnomalySeverity::Critical)
+                .count();
+            let high = file
+                .anomalies
+                .iter()
+                .filter(|a| a.severity == AnomalySeverity::High)
+                .count();
+            if crit > 0 {
+                format!(" [CRIT:{}]", crit)
+            } else if high > 0 {
+                format!(" [HIGH:{}]", high)
+            } else {
+                format!(" [{}]", file.anomalies.len())
+            }
+        };
+        format!(" Anomalies — {}{} ", file.name(), severity_summary)
+    } else {
+        " Anomalies — No file selected ".to_string()
+    };
+
+    let text = if let Some(file) = app.selected_file() {
+        if file.anomalies.is_empty() {
+            if file.lines.is_empty() {
+                Text::from("Waiting for log lines...")
+            } else {
+                Text::from("No anomalies detected. Baseline established from historical data.")
+            }
+        } else {
+            let mut lines: Vec<Line> = Vec::new();
+
+            let severity_counts =
+                crate::anomaly::AnomalyEngine::severity_counts(&file.anomalies);
+            let mut summary_parts = vec![Span::styled(
+                "Summary: ",
+                Style::default().add_modifier(Modifier::BOLD),
+            )];
+            let severity_order = [
+                (AnomalySeverity::Critical, theme.fatal_color()),
+                (AnomalySeverity::High, theme.error_color()),
+                (AnomalySeverity::Medium, theme.warn_color()),
+                (AnomalySeverity::Low, theme.trace_color()),
+            ];
+            for (sev, color) in severity_order {
+                if let Some(count) = severity_counts.get(&sev) {
+                    summary_parts.push(Span::styled(
+                        format!("{}:{} ", sev.as_str(), count),
+                        Style::default().fg(color).add_modifier(Modifier::BOLD),
+                    ));
+                }
+            }
+            lines.push(Line::from(summary_parts));
+            lines.push(Line::from(""));
+
+            let sorted = crate::anomaly::AnomalyEngine::sorted_by_severity(&file.anomalies);
+            for anomaly in sorted.iter().take(50) {
+                let severity_color = anomaly_severity_color(anomaly.severity, &theme);
+                let type_color = match anomaly.anomaly_type {
+                    crate::anomaly::AnomalyType::RateSpike => theme.count_color(),
+                    crate::anomaly::AnomalyType::ErrorSpike => theme.error_color(),
+                    crate::anomaly::AnomalyType::NewPattern => theme.field_color(),
+                    crate::anomaly::AnomalyType::LevelShift => theme.warn_color(),
+                };
+
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("[{}] ", anomaly.severity.as_str()),
+                        Style::default()
+                            .fg(severity_color)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{}: ", anomaly.anomaly_type.as_str()),
+                        Style::default().fg(type_color),
+                    ),
+                    Span::styled(anomaly.description.clone(), Style::default().fg(theme.text())),
+                ]));
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        "          ",
+                        Style::default(),
+                    ),
+                    Span::styled(
+                        format!(
+                            "bucket: {} | value: {} | expected: ~{}",
+                            anomaly.bucket, anomaly.value, anomaly.expected
+                        ),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ]));
+            }
+
+            if sorted.len() > 50 {
+                lines.push(Line::from(""));
+                lines.push(Line::from(vec![Span::styled(
+                    format!("... and {} more anomalies", sorted.len() - 50),
+                    Style::default().fg(Color::DarkGray),
+                )]));
+            }
+
+            Text::from(lines)
+        }
+    } else {
+        Text::from("Select a file to view anomalies")
+    };
+
+    let paragraph = Paragraph::new(text)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(title)
+                .title_alignment(Alignment::Center),
+        )
+        .wrap(Wrap { trim: false });
+
+    f.render_widget(paragraph, area);
+}
+
 fn render_status_bar(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let focus_text = match app.focus {
         Focus::FileList => "FILES",
         Focus::TailView => match app.view_mode {
             ViewMode::Tail => "TAIL",
             ViewMode::Aggregation => "AGG",
+            ViewMode::Anomaly => "ANOM",
         },
     };
 
@@ -285,6 +422,7 @@ fn render_status_bar(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let view_indicator = match app.view_mode {
         ViewMode::Tail => "tail",
         ViewMode::Aggregation => "agg",
+        ViewMode::Anomaly => "anom",
     };
 
     let help_text = format!(
@@ -309,6 +447,15 @@ fn level_color(level: LogLevel, theme: &Theme) -> Color {
         LogLevel::Error => theme.error_color(),
         LogLevel::Fatal => theme.fatal_color(),
         LogLevel::Unknown => theme.unknown_color(),
+    }
+}
+
+fn anomaly_severity_color(severity: AnomalySeverity, theme: &Theme) -> Color {
+    match severity {
+        AnomalySeverity::Critical => theme.fatal_color(),
+        AnomalySeverity::High => theme.error_color(),
+        AnomalySeverity::Medium => theme.warn_color(),
+        AnomalySeverity::Low => theme.trace_color(),
     }
 }
 

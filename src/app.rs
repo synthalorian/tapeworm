@@ -1,4 +1,5 @@
 use crate::aggregate::{AggregationEngine, AggregationResult};
+use crate::anomaly::{Anomaly, AnomalyEngine};
 use crate::parser::ParsedLine;
 use crate::theme::Theme;
 use std::path::PathBuf;
@@ -19,6 +20,8 @@ pub struct FileState {
     pub line_count: usize,
     pub parser_enabled: bool,
     pub aggregation: Option<AggregationResult>,
+    pub anomalies: Vec<Anomaly>,
+    pub anomaly_engine: AnomalyEngine,
 }
 
 impl FileState {
@@ -30,12 +33,17 @@ impl FileState {
             line_count: 0,
             parser_enabled: true,
             aggregation: None,
+            anomalies: Vec::new(),
+            anomaly_engine: AnomalyEngine::default(),
         }
     }
 
-    /// Recompute aggregation using the provided engine
+    /// Recompute aggregation and detect anomalies using the provided engine
     pub fn recompute_aggregation(&mut self, engine: &AggregationEngine) {
         self.aggregation = Some(engine.aggregate(&self.parsed_lines));
+        if let Some(ref agg) = self.aggregation {
+            self.anomalies = self.anomaly_engine.detect(agg);
+        }
     }
 
     pub fn name(&self) -> String {
@@ -83,6 +91,7 @@ impl FileState {
 pub enum ViewMode {
     Tail,
     Aggregation,
+    Anomaly,
 }
 
 /// Main application state
@@ -122,7 +131,8 @@ impl App {
     pub fn toggle_view_mode(&mut self) {
         self.view_mode = match self.view_mode {
             ViewMode::Tail => ViewMode::Aggregation,
-            ViewMode::Aggregation => ViewMode::Tail,
+            ViewMode::Aggregation => ViewMode::Anomaly,
+            ViewMode::Anomaly => ViewMode::Tail,
         };
     }
 

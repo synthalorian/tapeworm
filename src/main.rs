@@ -1,4 +1,5 @@
 mod aggregate;
+mod anomaly;
 mod app;
 mod events;
 mod export;
