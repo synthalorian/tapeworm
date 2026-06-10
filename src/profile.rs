@@ -10,6 +10,7 @@ pub enum ProfileError {
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("Profile not found: {0}")]
+    #[allow(dead_code)]
     NotFound(String),
 }
 
@@ -98,6 +99,7 @@ impl LogProfile {
     }
 
     /// Save a profile to a JSON file
+    #[allow(dead_code)]
     pub fn to_file(&self, path: &Path) -> Result<(), ProfileError> {
         let content = serde_json::to_string_pretty(self)?;
         std::fs::write(path, content)?;
@@ -137,12 +139,14 @@ impl ProfileManager {
         self.profiles.get(name)
     }
 
+    #[allow(dead_code)]
     pub fn load_from_file(&mut self, path: &Path) -> Result<(), ProfileError> {
         let profile = LogProfile::from_file(path)?;
         self.register(profile);
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn list_profiles(&self) -> Vec<&str> {
         self.profiles.keys().map(|s| s.as_str()).collect()
     }

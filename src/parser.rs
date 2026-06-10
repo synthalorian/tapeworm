@@ -146,6 +146,7 @@ impl LogParser {
     }
 
     /// Get the profile name
+    #[allow(dead_code)]
     pub fn profile_name(&self) -> &str {
         &self.profile.name
     }

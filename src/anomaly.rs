@@ -98,6 +98,7 @@ pub struct AnomalyEngine {
     pub history: Vec<BucketHistory>,
 }
 
+#[allow(dead_code)]
 impl AnomalyEngine {
     pub fn new(config: AnomalyConfig) -> Self {
         Self {

@@ -13,6 +13,7 @@ pub enum TailError {
     #[error("Notify error: {0}")]
     Notify(#[from] notify::Error),
     #[error("Channel send error")]
+    #[allow(dead_code)]
     SendError,
 }
 
@@ -59,6 +60,7 @@ impl TailWatcher {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn unwatch(&mut self, path: &Path) -> Result<(), TailError> {
         self.file_positions.remove(path);
         self.watcher.unwatch(path)?;

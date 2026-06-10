@@ -157,6 +157,7 @@ impl App {
         self.files.get(self.selected_index)
     }
 
+    #[allow(dead_code)]
     pub fn selected_file_mut(&mut self) -> Option<&mut FileState> {
         self.files.get_mut(self.selected_index)
     }

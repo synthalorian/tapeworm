@@ -23,6 +23,7 @@ impl Theme {
         }
     }
 
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &'static str {
         match self {
             Theme::Default => "default",

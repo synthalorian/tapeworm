@@ -1,5 +1,4 @@
 use crate::app::{App, Focus};
-use crate::theme::Theme;
 use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyModifiers};
 use std::time::Duration;
 
@@ -99,6 +98,7 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Theme;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use std::path::PathBuf;
 

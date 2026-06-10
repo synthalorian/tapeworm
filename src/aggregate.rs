@@ -81,6 +81,7 @@ pub struct GroupByConfig {
     pub top_n: Option<usize>,
 }
 
+#[allow(dead_code)]
 impl GroupByConfig {
     pub fn new(field_name: String) -> Self {
         Self {
@@ -111,6 +112,7 @@ impl Default for AggregationEngine {
     }
 }
 
+#[allow(dead_code)]
 impl AggregationEngine {
     pub fn new(time_window: TimeWindow) -> Self {
         Self {

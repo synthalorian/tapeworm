@@ -1,6 +1,6 @@
 [package]
 name = "tapeworm"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "TUI log file analyzer -- htop for logs"
 license = "MIT"
