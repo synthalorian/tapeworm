@@ -3,7 +3,7 @@ name = "tapeworm"
 version = "1.0.0"
 edition = "2021"
 description = "TUI log file analyzer -- htop for logs"
-license = "MIT"
+license = "Apache-2.0"
 
 [dependencies]
 ratatui = "0.26"
